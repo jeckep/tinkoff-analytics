@@ -1,30 +1,42 @@
 import os
+from datetime import datetime
 
 from dotenv import load_dotenv
 from tinkoff.invest import Client, GetOperationsByCursorRequest, OperationType
-
 
 load_dotenv()
 
 token = os.environ["TINKOFF_TOKEN"]
 
 
-def get_sum_pay_in():
+def print_deposites():
     with Client(token) as client:
         accounts = client.users.get_accounts()
         account_id = accounts.accounts[0].id
-    
-        req = GetOperationsByCursorRequest(
+
+        def get_request(cursor=""):
+            return GetOperationsByCursorRequest(
+                # from_=datetime(2022, 1, 1),
                 account_id=account_id,
-                operation_types=[OperationType(1)] # only PayIn operations
-                )
-        operations = client.operations.get_operations_by_cursor(req)
+                operation_types=[OperationType(1)],  # only PayIn operations
+                cursor=cursor
+            )
 
-        sum = 0
+        deposites = []
+        operations = client.operations.get_operations_by_cursor(get_request())
         for op in operations.items:
-            sum += op.payment.units
+            deposites.append({'currency': op.payment.currency,
+                              'amount': op.payment.units, 'date': op.date.strftime('%Y-%m-%d')})
 
-        return sum
+        while operations.has_next:
+            request = get_request(cursor=operations.next_cursor)
+            operations = client.operations.get_operations_by_cursor(request)
+            for op in operations.items:
+                deposites.append({'currency': op.payment.currency, 'amount': op.payment.units,
+                                  'date': op.date.strftime('%Y-%m-%d')})
+
+        for dep in deposites:
+            print(dep['currency'], dep['amount'], dep['date'])
 
 
 def get_portfolio_sum():
@@ -36,13 +48,8 @@ def get_portfolio_sum():
         return portfolio.total_amount_portfolio.units
 
 
-if __name__ ==  "__main__":
+if __name__ == "__main__":
     portfolio_sum = get_portfolio_sum()
-    sum_pay_in = get_sum_pay_in()
+    print(f"Текущая  рублёвая стоимость портфеля: {portfolio_sum:n} руб\n")
 
-    profit_in_rub = portfolio_sum - sum_pay_in
-    profit_in_percent = 100 * round(profit_in_rub / sum_pay_in, 4)
-
-    print(f"Пополнения: {sum_pay_in:n} руб\n"
-          f"Текущая  рублёвая стоимость портфеля: {portfolio_sum:n} руб\n"
-          f"Рублёвая прибыль: {profit_in_rub:n} руб ({profit_in_percent:n}%)")
+    print_deposites()
