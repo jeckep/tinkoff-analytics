@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 
 from dotenv import load_dotenv
 from tinkoff.invest import Client, GetOperationsByCursorRequest, OperationType
@@ -17,6 +16,7 @@ def get_acc_ids():
         accounts = client.users.get_accounts().accounts
         return [acc.id for acc in accounts]
 
+
 def print_deposites():
     with Client(token) as client:
         op_dtos = []
@@ -28,17 +28,18 @@ def print_deposites():
                     operation_types=[OPERATION_TYPE_INPUT, OPERATION_TYPE_OUTPUT],
                     cursor=cursor
                 )
+
             operations = client.operations.get_operations_by_cursor(get_request())
             for op in operations.items:
                 op_dtos.append({'currency': op.payment.currency,
-                                  'amount': op.payment.units, 'date': op.date.strftime('%Y-%m-%d')})
+                                'amount': op.payment.units, 'date': op.date.strftime('%Y-%m-%d')})
 
             while operations.has_next:
                 request = get_request(cursor=operations.next_cursor)
                 operations = client.operations.get_operations_by_cursor(request)
                 for op in operations.items:
                     op_dtos.append({'currency': op.payment.currency, 'amount': op.payment.units,
-                                      'date': op.date.strftime('%Y-%m-%d')})
+                                    'date': op.date.strftime('%Y-%m-%d')})
 
         for op in op_dtos:
             print(op['currency'], op['amount'], op['date'], sep='\t')
